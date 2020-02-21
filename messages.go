@@ -2,21 +2,23 @@ package main
 
 import (
 	"encoding/json"
+	_ "github.com/gocql/gocql"
 	"github.com/gorilla/mux"
 	"gopkg.in/gomail.v2"
 	"log"
 	"math/rand"
 	"net/http"
-	_ "github.com/gocql/gocql"
+	"time"
 )
 
 // Message struct
 type Message struct {
-	Id          int    `json:"id"`
-	Email       string `json:"email"`
-	Title       string `json:"title"`
-	Content     string `json:"content"`
-	MagicNumber int    `json:"magic_number"`
+	Id          int       `json:"id"`
+	Email       string    `json:"email"`
+	Title       string    `json:"title"`
+	Content     string    `json:"content"`
+	MagicNumber int       `json:"magic_number"`
+	Created     time.Time `json:"created"`
 }
 
 // SendTo struct
@@ -34,6 +36,7 @@ func createMessage(w http.ResponseWriter, r *http.Request) {
 	var message Message
 	_ = json.NewDecoder(r.Body).Decode(&message)
 	message.Id = rand.Intn(10000000) // Mock ID - not safe - todo
+	message.Created = time.Now()
 	messages = append(messages, message)
 	json.NewEncoder(w).Encode(message)
 }
@@ -106,15 +109,33 @@ func main() {
 	// Init router
 	r := mux.NewRouter()
 
-	// todo - delete old messages
-
 	// Mock data - todo - implement DB
 	messages = append(messages, Message{Id: 1, Email: "jan.kowalski@example.com",
-		Title: "Interview", Content: "simple text", MagicNumber: 101})
+		Title: "Interview", Content: "simple text", MagicNumber: 101, Created: time.Now()})
 	messages = append(messages, Message{Id: 2, Email: "jan.kowalski@example.com",
-		Title: "Interview 2", Content: "simple text 2", MagicNumber: 22})
+		Title: "Interview 2", Content: "simple text 2", MagicNumber: 22, Created: time.Now()})
 	messages = append(messages, Message{Id: 3, Email: "anna.zajkowska@example.com",
-		Title: "Interview 3", Content: "simple text 3", MagicNumber: 101})
+		Title: "Interview 3", Content: "simple text 3", MagicNumber: 101, Created: time.Now()})
+
+	// Checking for old messages
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for range ticker.C {
+			now := time.Now()
+			var toDelete []int
+			for _, item := range messages {
+				diff := now.Sub(item.Created)
+				if diff.Minutes() > 5 {
+					toDelete = append(toDelete, item.Id)
+				}
+			}
+			println("check performed")
+			for _, value := range toDelete {
+				deleteMessage(value)
+				println("message deleted")
+			}
+		}
+	}()
 
 	// Route handlers / endpoints
 	r.HandleFunc("/api/messages", getAllMessages).Methods("GET")
