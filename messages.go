@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	_ "github.com/gocql/gocql"
+	"fmt"
+	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
 	"gopkg.in/gomail.v2"
 	"log"
-	"math/rand"
 	"net/http"
 	"time"
 )
@@ -30,14 +30,19 @@ type SendTo struct {
 
 var messages []Message
 
+// Init id
+
+var id int = 1
+
 // Create a new message
 
 func createMessage(w http.ResponseWriter, r *http.Request) {
 	var message Message
 	_ = json.NewDecoder(r.Body).Decode(&message)
-	message.Id = rand.Intn(10000000) // Mock ID - not safe - todo
+	message.Id = id
 	message.Created = time.Now()
 	messages = append(messages, message)
+	id += 1
 	json.NewEncoder(w).Encode(message)
 }
 
@@ -106,16 +111,71 @@ func deleteMessage(id int) {
 }
 
 func main() {
+	//Init db
+	cluster := gocql.NewCluster("172.19.0.2") // Insert cluster IP
+	cluster.Consistency = gocql.Quorum
+	cluster.ProtoVersion = 4
+	cluster.ConnectTimeout = time.Second * 10
+	//cluster.Authenticator = gocql.PasswordAuthenticator{Username:"Username", Password:"Password"} // Insert auth credentials
+	session, err := cluster.CreateSession()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer session.Close()
+
+	// Create keyspace
+	err = session.Query("CREATE KEYSPACE IF NOT EXISTS messages_space WITH REPLICATION =" +
+		"{'class':'SimpleStrategy','replication_factor':1};").Exec()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Create table
+	err = session.Query("CREATE TABLE IF NOT EXISTS messages_space.messages_table" +
+		"(id int, email text, title text, content text, magic_number int, created time,PRIMARY KEY (id));").Exec()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	// Init router
 	r := mux.NewRouter()
 
 	// Mock data - todo - implement DB
-	messages = append(messages, Message{Id: 1, Email: "jan.kowalski@example.com",
-		Title: "Interview", Content: "simple text", MagicNumber: 101, Created: time.Now()})
-	messages = append(messages, Message{Id: 2, Email: "jan.kowalski@example.com",
-		Title: "Interview 2", Content: "simple text 2", MagicNumber: 22, Created: time.Now()})
-	messages = append(messages, Message{Id: 3, Email: "anna.zajkowska@example.com",
-		Title: "Interview 3", Content: "simple text 3", MagicNumber: 101, Created: time.Now()})
+	now := time.Now()
+	values := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v", id, "jan.kowalski@example.com", "Interview",
+		"simple text", 101, now.Hour(), now.Minute(), now.Second())
+	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values)
+	id += 1
+	err = session.Query(query).Exec()
+	//
+	values2 := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v",	id, "jan.kowalski@example.com", "Interview 2",
+		"simple text 2", 101, now.Hour(), now.Minute(), now.Second())
+	query2 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values2)
+	id += 1
+	err = session.Query(query2).Exec()
+	//
+	values3 := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v",	id, "anna.zajkowska@example.com", "Interview 3",
+		"simple text 3", 101, now.Hour(), now.Minute(), now.Second())
+	query3 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values3)
+	id += 1
+	err = session.Query(query3).Exec()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	//messages = append(messages, Message{Id: id, Email: "jan.kowalski@example.com",
+	//	Title: "Interview", Content: "simple text", MagicNumber: 101, Created: time.Now()})
+	//id += 1
+	//messages = append(messages, Message{Id: id, Email: "jan.kowalski@example.com",
+	//	Title: "Interview 2", Content: "simple text 2", MagicNumber: 22, Created: time.Now()})
+	//id += 1
+	//messages = append(messages, Message{Id: id, Email: "anna.zajkowska@example.com",
+	//	Title: "Interview 3", Content: "simple text 3", MagicNumber: 101, Created: time.Now()})
+	//id += 1
 
 	// Checking for old messages
 	ticker := time.NewTicker(1 * time.Minute)
