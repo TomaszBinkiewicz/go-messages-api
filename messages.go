@@ -44,7 +44,7 @@ func getTime() int {
 // Create session
 func cassandraConnection() *gocql.Session {
 	//Init db
-	cluster := gocql.NewCluster("172.18.0.2") // Insert cluster IP
+	cluster := gocql.NewCluster("db") // Insert cluster IP
 	cluster.Consistency = gocql.Quorum
 	cluster.ProtoVersion = 4
 	cluster.ConnectTimeout = time.Second * 10
@@ -152,7 +152,8 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&sendTo)
 	for _, item := range messages {
 		if item.MagicNumber == sendTo.MagicNumber {
-			// send email todo - insert valid credentials
+			// send email
+			//todo - insert valid credentials
 			m := gomail.NewMessage()
 			m.SetHeader("From", "author@example.com")
 			m.SetHeader("To", item.Email)
@@ -162,9 +163,10 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 
 			// Send the email to Bob, Cora and Dan.
 			if err := d.DialAndSend(m); err != nil {
-				checkErr = true
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("500 - Something bad happened!"))
+				// todo - uncomment for errors handling
+				//checkErr = true
+				//w.WriteHeader(http.StatusInternalServerError)
+				//w.Write([]byte("500 - Something bad happened!"))
 			}
 
 			// delete from db

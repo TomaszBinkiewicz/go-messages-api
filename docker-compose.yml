@@ -1,0 +1,16 @@
+version: '3.7'
+services:
+  db:
+    image: cassandra:3.11
+    restart: on-failure
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    links:
+      - db
+    command: go run messages.go
+    restart: on-failure
+
