@@ -228,9 +228,6 @@ func main() {
 
 	//createMockData() // init with mock data
 
-	// Init router
-	r := mux.NewRouter()
-
 	// Checking for old messages
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
@@ -249,6 +246,9 @@ func main() {
 			}
 		}
 	}()
+
+	// Init router
+	r := mux.NewRouter()
 
 	// Route handlers / endpoints
 	r.HandleFunc("/api/messages", getAllMessages).Methods("GET")
