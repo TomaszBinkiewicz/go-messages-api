@@ -8,17 +8,18 @@ import (
 	"gopkg.in/gomail.v2"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
 // Message struct
 type Message struct {
-	Id          int       `json:"id"`
-	Email       string    `json:"email"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	MagicNumber int       `json:"magic_number"`
-	Created     time.Time `json:"created"`
+	Id          int    `json:"id"`
+	Email       string `json:"email"`
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	MagicNumber int    `json:"magic_number"`
+	Created     int    `json:"created"`
 }
 
 // SendTo struct
@@ -26,57 +27,132 @@ type SendTo struct {
 	MagicNumber int `json:"magic_number"`
 }
 
-// Init messages var as slice Message struct
-
-var messages []Message
-
 // Init id
-
 var id int = 1
 
-// Create a new message
+// Get current time as integer
+func getTime() int {
+	now := time.Now()
+	timeStr := fmt.Sprintf("%02v%02v", now.Hour(), now.Minute())
+	timeInt, err := strconv.Atoi(timeStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return timeInt
+}
 
-func createMessage(w http.ResponseWriter, r *http.Request) {
+// Create session
+func cassandraConnection() *gocql.Session {
+	//Init db
+	cluster := gocql.NewCluster("172.18.0.2") // Insert cluster IP
+	cluster.Consistency = gocql.Quorum
+	cluster.ProtoVersion = 4
+	cluster.ConnectTimeout = time.Second * 10
+	cluster.Authenticator = gocql.PasswordAuthenticator{Username:"Username", Password:"Password"} // Insert auth credentials
+	session, err := cluster.CreateSession()
+	if err != nil {
+		log.Println(err)
+	}
+	return session
+}
+
+// Execute query
+func execQuery(query string) {
+	session := cassandraConnection()
+	defer session.Close()
+	err := session.Query(query).Exec()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
+// Get all messages as a slice
+func getSliceMessages() []Message{
+	var messages []Message
 	var message Message
+
+	session := cassandraConnection()
+	defer session.Close()
+	iter := session.Query("SELECT id, email, title, content, magic_number, created " +
+		"FROM messages_space.messages_table;").Iter()
+	for iter.Scan(&message.Id, &message.Email, &message.Title, &message.Content, &message.MagicNumber, &message.Created) {
+		messages = append(messages, message)
+	}
+	if err := iter.Close(); err != nil {
+		log.Fatal(err)
+	}
+	return messages
+}
+
+// Get messages by email as a slice
+func getSliceMessagesEmail(email string) []Message{
+	var messages []Message
+	var message Message
+
+	session := cassandraConnection()
+	defer session.Close()
+	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created FROM " +
+		"messages_space.messages_table WHERE email='%v' ALLOW FILTERING;", email)
+	iter := session.Query(query).Iter()
+	for iter.Scan(&message.Id, &message.Email, &message.Title, &message.Content, &message.MagicNumber, &message.Created) {
+		messages = append(messages, message)
+	}
+	if err := iter.Close(); err != nil {
+		log.Fatal(err)
+	}
+	return messages
+}
+
+// Create a new message
+func createMessage(w http.ResponseWriter, r *http.Request) {
+	messages := getSliceMessages()
+	var message Message
+
 	_ = json.NewDecoder(r.Body).Decode(&message)
 	message.Id = id
-	message.Created = time.Now()
+	message.Created = getTime()
 	messages = append(messages, message)
 	id += 1
-	json.NewEncoder(w).Encode(message)
+
+	session := cassandraConnection()
+	defer session.Close()
+
+	values := fmt.Sprintf("%v, '%v', '%v', '%v', %v, %v", message.Id, message.Email, message.Title,
+		message.Content, message.MagicNumber, message.Created)
+	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
+		"created) VALUES (%v);", values)
+	execQuery(query)
+	w.WriteHeader(201)
+	w.Write([]byte("201 - Message created!"))
 }
 
 // Get all messages
-
-func getAllMessages(w http.ResponseWriter, r *http.Request) {
+func getAllMessages(w http.ResponseWriter, r *http.Request){
+	messages := getSliceMessages()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
 }
 
 // Get messages by email
-
 func getMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Get params
-	var found []Message
-	// loop through messages
-	for _, item := range messages {
-		if item.Email == params["emailValue"] {
-			found = append(found, item)
-		}
-	}
+	email := params["emailValue"]
+	found := getSliceMessagesEmail(email)
 	json.NewEncoder(w).Encode(found)
 }
 
 // Send message
-
 func sendMessage(w http.ResponseWriter, r *http.Request) {
+	messages := getSliceMessages()
+	checkErr := false
 	var sendTo SendTo
 	var toDelete []int
 	json.NewDecoder(r.Body).Decode(&sendTo)
 	for _, item := range messages {
 		if item.MagicNumber == sendTo.MagicNumber {
-			// send email
+			// send email todo - insert valid credentials
 			m := gomail.NewMessage()
 			m.SetHeader("From", "author@example.com")
 			m.SetHeader("To", item.Email)
@@ -86,113 +162,90 @@ func sendMessage(w http.ResponseWriter, r *http.Request) {
 
 			// Send the email to Bob, Cora and Dan.
 			if err := d.DialAndSend(m); err != nil {
-				//panic(err) // todo - uncomment for error notification
+				checkErr = true
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Something bad happened!"))
 			}
 
 			// delete from db
 			toDelete = append(toDelete, item.Id)
 		}
 	}
-	for _, value := range toDelete {
-		deleteMessage(value)
+	if len(toDelete) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if checkErr == false {
+		for _, value := range toDelete {
+			deleteMessage(value)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("202 - Message(s) sent!"))
 	}
 }
 
 // Delete message
-
 func deleteMessage(id int) {
-	// loop through messages
-	for index, item := range messages {
-		if item.Id == id {
-			messages = append(messages[:index], messages[index+1:]...)
-			break
-		}
-	}
+	query := fmt.Sprintf("DELETE FROM messages_space.messages_table WHERE id=%v;", id)
+	execQuery(query)
+}
+
+// Insert mock data
+func createMockData() {
+	//
+	values := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'jan.kowalski@example.com'", "'Interview'",
+		"'simple text'", 101, getTime())
+	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
+		"created) VALUES (%v);", values)
+	id += 1
+	execQuery(query)
+	//
+	values2 := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'jan.kowalski@example.com'", "'Interview 2'",
+		"'simple text 2'", 22, getTime())
+	query2 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
+		"created) VALUES (%v);", values2)
+	id += 1
+	execQuery(query2)
+	//
+	values3 := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'anna.zajkowska@example.com'", "'Interview 3'",
+		"'simple text 3'", 101, getTime())
+	query3 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
+		"created) VALUES (%v);", values3)
+	id += 1
+	execQuery(query3)
 }
 
 func main() {
-	//Init db
-	cluster := gocql.NewCluster("172.19.0.2") // Insert cluster IP
-	cluster.Consistency = gocql.Quorum
-	cluster.ProtoVersion = 4
-	cluster.ConnectTimeout = time.Second * 10
-	//cluster.Authenticator = gocql.PasswordAuthenticator{Username:"Username", Password:"Password"} // Insert auth credentials
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer session.Close()
-
 	// Create keyspace
-	err = session.Query("CREATE KEYSPACE IF NOT EXISTS messages_space WITH REPLICATION =" +
-		"{'class':'SimpleStrategy','replication_factor':1};").Exec()
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	query := "CREATE KEYSPACE IF NOT EXISTS messages_space WITH REPLICATION = {'class':'SimpleStrategy'," +
+		"'replication_factor':1};"
+	execQuery(query)
 
 	// Create table
-	err = session.Query("CREATE TABLE IF NOT EXISTS messages_space.messages_table" +
-		"(id int, email text, title text, content text, magic_number int, created time,PRIMARY KEY (id));").Exec()
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	query = "CREATE TABLE IF NOT EXISTS messages_space.messages_table (id int, email text, title text, content text," +
+		"magic_number int, Created int,PRIMARY KEY (id, email));"
+	execQuery(query)
+
+	//createMockData() // init with mock data
 
 	// Init router
 	r := mux.NewRouter()
-
-	// Mock data - todo - implement DB
-	now := time.Now()
-	values := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v", id, "jan.kowalski@example.com", "Interview",
-		"simple text", 101, now.Hour(), now.Minute(), now.Second())
-	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values)
-	id += 1
-	err = session.Query(query).Exec()
-	//
-	values2 := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v",	id, "jan.kowalski@example.com", "Interview 2",
-		"simple text 2", 101, now.Hour(), now.Minute(), now.Second())
-	query2 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values2)
-	id += 1
-	err = session.Query(query2).Exec()
-	//
-	values3 := fmt.Sprintf("%v, %v, %v, %v, %v, %02v:%02v:%02v",	id, "anna.zajkowska@example.com", "Interview 3",
-		"simple text 3", 101, now.Hour(), now.Minute(), now.Second())
-	query3 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number, created) VALUES (%v);", values3)
-	id += 1
-	err = session.Query(query3).Exec()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	//messages = append(messages, Message{Id: id, Email: "jan.kowalski@example.com",
-	//	Title: "Interview", Content: "simple text", MagicNumber: 101, Created: time.Now()})
-	//id += 1
-	//messages = append(messages, Message{Id: id, Email: "jan.kowalski@example.com",
-	//	Title: "Interview 2", Content: "simple text 2", MagicNumber: 22, Created: time.Now()})
-	//id += 1
-	//messages = append(messages, Message{Id: id, Email: "anna.zajkowska@example.com",
-	//	Title: "Interview 3", Content: "simple text 3", MagicNumber: 101, Created: time.Now()})
-	//id += 1
 
 	// Checking for old messages
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
 		for range ticker.C {
-			now := time.Now()
+			messages := getSliceMessages()
+			now := getTime()
 			var toDelete []int
 			for _, item := range messages {
-				diff := now.Sub(item.Created)
-				if diff.Minutes() > 5 {
+				diff := now - item.Created
+				if diff > 5 {
 					toDelete = append(toDelete, item.Id)
 				}
 			}
-			println("check performed")
 			for _, value := range toDelete {
 				deleteMessage(value)
-				println("message deleted")
 			}
 		}
 	}()
