@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/gorilla/mux"
 	"log"
+	"messages/project_package"
 	"net/http"
 	"time"
-	"messages/project_package"
 )
 
 func main() {
@@ -16,7 +16,10 @@ func main() {
 
 	// Create table
 	query = "CREATE TABLE IF NOT EXISTS messages_space.messages_table (id int, email text, title text, content text," +
-		"magic_number int, Created int,PRIMARY KEY (id, email));"
+		"magic_number int, Created int,PRIMARY KEY ((id), email));"
+	project_package.ExecQuery(query)
+
+	query = "CREATE INDEX IF NOT EXISTS ON messages_space.messages_table (email);"
 	project_package.ExecQuery(query)
 
 	project_package.CreateMockData() // init with mock data

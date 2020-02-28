@@ -75,7 +75,7 @@ func GetSliceMessagesEmail(email string) []Message{
 	session := CassandraConnection()
 	defer session.Close()
 	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created FROM " +
-		"messages_space.messages_table WHERE email='%v' ALLOW FILTERING;", email)
+		"messages_space.messages_table WHERE email='%v';", email)
 	iter := session.Query(query).Iter()
 	for iter.Scan(&message.Id, &message.Email, &message.Title, &message.Content, &message.MagicNumber, &message.Created) {
 		messages = append(messages, message)
@@ -85,4 +85,3 @@ func GetSliceMessagesEmail(email string) []Message{
 	}
 	return messages
 }
-
