@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/gocql/gocql"
 	"log"
+	"regexp"
 	"strconv"
 	"time"
 )
 
 // Init id
 var id int = 1
-
 
 // Get current time as integer
 func GetTime() int {
@@ -30,7 +30,7 @@ func CassandraConnection() *gocql.Session {
 	cluster.Consistency = gocql.Quorum
 	cluster.ProtoVersion = 4
 	cluster.ConnectTimeout = time.Second * 10
-	cluster.Authenticator = gocql.PasswordAuthenticator{Username:"Username", Password:"Password"} // Insert auth credentials
+	cluster.Authenticator = gocql.PasswordAuthenticator{Username: "Username", Password: "Password"} // Insert auth credentials
 	session, err := cluster.CreateSession()
 	if err != nil {
 		log.Println(err)
@@ -50,7 +50,7 @@ func ExecQuery(query string) {
 }
 
 // Get all messages as a slice
-func GetSliceMessages() []Message{
+func GetSliceMessages() []Message {
 	var messages []Message
 	var message Message
 
@@ -68,13 +68,13 @@ func GetSliceMessages() []Message{
 }
 
 // Get messages by email as a slice
-func GetSliceMessagesEmail(email string) []Message{
+func GetSliceMessagesEmail(email string) []Message {
 	var messages []Message
 	var message Message
 
 	session := CassandraConnection()
 	defer session.Close()
-	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created FROM " +
+	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created FROM "+
 		"messages_space.messages_table WHERE email='%v';", email)
 	iter := session.Query(query).Iter()
 	for iter.Scan(&message.Id, &message.Email, &message.Title, &message.Content, &message.MagicNumber, &message.Created) {
@@ -84,4 +84,10 @@ func GetSliceMessagesEmail(email string) []Message{
 		log.Fatal(err)
 	}
 	return messages
+}
+
+func ValidateEmail(email string) bool {
+	pattern := "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$"
+	retValue, _ := regexp.MatchString(pattern, email)
+	return retValue
 }

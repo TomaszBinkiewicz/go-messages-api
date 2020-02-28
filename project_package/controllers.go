@@ -13,7 +13,12 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	messages := GetSliceMessages()
 	var message Message
 
-	_ = json.NewDecoder(r.Body).Decode(&message)
+	err := json.NewDecoder(r.Body).Decode(&message)
+	if err != nil || ValidateEmail(message.Email) == false {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad data"))
+		return
+	}
 	message.Id = id
 	message.Created = GetTime()
 	messages = append(messages, message)
@@ -24,7 +29,7 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 
 	values := fmt.Sprintf("%v, '%v', '%v', '%v', %v, %v", message.Id, message.Email, message.Title,
 		message.Content, message.MagicNumber, message.Created)
-	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
+	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number,"+
 		"created) VALUES (%v);", values)
 	ExecQuery(query)
 	w.WriteHeader(201)
@@ -32,7 +37,7 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get all messages
-func GetAllMessages(w http.ResponseWriter, r *http.Request){
+func GetAllMessages(w http.ResponseWriter, r *http.Request) {
 	messages := GetSliceMessages()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
@@ -43,6 +48,11 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r) // Get params
 	email := params["emailValue"]
+	if ValidateEmail(email) == false {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - invalid email address"))
+		return
+	}
 	found := GetSliceMessagesEmail(email)
 	json.NewEncoder(w).Encode(found)
 }
@@ -53,7 +63,12 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 	checkErr := false
 	var sendTo SendTo
 	var toDelete []int
-	json.NewDecoder(r.Body).Decode(&sendTo)
+	err := json.NewDecoder(r.Body).Decode(&sendTo)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("400 - bad data"))
+		return
+	}
 	for _, item := range messages {
 		if item.MagicNumber == sendTo.MagicNumber {
 			// send email
@@ -95,29 +110,3 @@ func DeleteMessage(id int) {
 	query := fmt.Sprintf("DELETE FROM messages_space.messages_table WHERE id=%v;", id)
 	ExecQuery(query)
 }
-
-// Insert mock data
-func CreateMockData() {
-	//
-	values := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'jan.kowalski@example.com'", "'Interview'",
-		"'simple text'", 101, GetTime())
-	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
-		"created) VALUES (%v);", values)
-	id += 1
-	ExecQuery(query)
-	//
-	values2 := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'jan.kowalski@example.com'", "'Interview 2'",
-		"'simple text 2'", 22, GetTime())
-	query2 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
-		"created) VALUES (%v);", values2)
-	id += 1
-	ExecQuery(query2)
-	//
-	values3 := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'anna.zajkowska@example.com'", "'Interview 3'",
-		"'simple text 3'", 101, GetTime())
-	query3 := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number," +
-		"created) VALUES (%v);", values3)
-	id += 1
-	ExecQuery(query3)
-}
-

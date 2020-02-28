@@ -22,8 +22,6 @@ func main() {
 	query = "CREATE INDEX IF NOT EXISTS ON messages_space.messages_table (email);"
 	project_package.ExecQuery(query)
 
-	project_package.CreateMockData() // init with mock data
-
 	// Checking for old messages
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
