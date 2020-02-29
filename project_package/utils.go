@@ -26,7 +26,7 @@ func GetTime() int {
 // Create session
 func CassandraConnection() *gocql.Session {
 	//Init db
-	cluster := gocql.NewCluster("db") // Insert cluster IP
+	cluster := gocql.NewCluster("db")
 	cluster.Consistency = gocql.Quorum
 	cluster.ProtoVersion = 4
 	cluster.ConnectTimeout = time.Second * 10
@@ -91,7 +91,8 @@ func ValidateEmail(email string) bool {
 	retValue, _ := regexp.MatchString(pattern, email)
 	return retValue
 }
-func DeleteOldMessages(){
+
+func DeleteOldMessages() {
 	ticker := time.NewTicker(1 * time.Minute)
 	go func() {
 		for range ticker.C {
