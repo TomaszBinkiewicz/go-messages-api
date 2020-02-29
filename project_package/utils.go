@@ -91,3 +91,22 @@ func ValidateEmail(email string) bool {
 	retValue, _ := regexp.MatchString(pattern, email)
 	return retValue
 }
+func DeleteOldMessages(){
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for range ticker.C {
+			messages := GetSliceMessages()
+			now := GetTime()
+			var toDelete []int
+			for _, item := range messages {
+				diff := now - item.Created
+				if diff > 5 {
+					toDelete = append(toDelete, item.Id)
+				}
+			}
+			for _, value := range toDelete {
+				DeleteMessage(value)
+			}
+		}
+	}()
+}

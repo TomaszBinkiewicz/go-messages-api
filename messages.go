@@ -5,7 +5,6 @@ import (
 	"log"
 	"messages/project_package"
 	"net/http"
-	"time"
 )
 
 func main() {
@@ -23,23 +22,7 @@ func main() {
 	project_package.ExecQuery(query)
 
 	// Checking for old messages
-	ticker := time.NewTicker(1 * time.Minute)
-	go func() {
-		for range ticker.C {
-			messages := project_package.GetSliceMessages()
-			now := project_package.GetTime()
-			var toDelete []int
-			for _, item := range messages {
-				diff := now - item.Created
-				if diff > 5 {
-					toDelete = append(toDelete, item.Id)
-				}
-			}
-			for _, value := range toDelete {
-				project_package.DeleteMessage(value)
-			}
-		}
-	}()
+	project_package.DeleteOldMessages()
 
 	// Init router
 	r := mux.NewRouter()
