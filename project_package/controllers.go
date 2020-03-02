@@ -72,15 +72,13 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 	for _, item := range messages {
 		if item.MagicNumber == sendTo.MagicNumber {
 			// send email
-			//todo - insert valid credentials
 			m := gomail.NewMessage()
-			m.SetHeader("From", "author@example.com")
+			m.SetHeader("From", emailConfig.author)
 			m.SetHeader("To", item.Email)
 			m.SetHeader("Subject", item.Title)
 			m.SetBody("text/html", item.Content)
-			d := gomail.NewDialer("smtp.example.com", 1111, "user", "password")
+			d := gomail.NewDialer("smtp.example.com", 1111, emailConfig.username, emailConfig.password)
 
-			// Send the email to Bob, Cora and Dan.
 			if err := d.DialAndSend(m); err != nil {
 				// todo - uncomment for errors handling
 				//checkErr = true

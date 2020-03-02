@@ -26,11 +26,12 @@ func GetTime() int {
 // Create session
 func CassandraConnection() *gocql.Session {
 	//Init db
-	cluster := gocql.NewCluster("db")
+	cluster := gocql.NewCluster(cassandraConfig.host)
 	cluster.Consistency = gocql.Quorum
 	cluster.ProtoVersion = 4
 	cluster.ConnectTimeout = time.Second * 10
-	cluster.Authenticator = gocql.PasswordAuthenticator{Username: "Username", Password: "Password"} // Insert auth credentials
+	cluster.Authenticator = gocql.PasswordAuthenticator{Username: cassandraConfig.username,
+		Password: cassandraConfig.password}
 	session, err := cluster.CreateSession()
 	if err != nil {
 		log.Println(err)
@@ -74,8 +75,8 @@ func GetSliceMessagesEmail(email string) []Message {
 
 	session := CassandraConnection()
 	defer session.Close()
-	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created FROM "+
-		"messages_space.messages_table WHERE email='%v';", email)
+	query := fmt.Sprintf("SELECT id, email, title, content, magic_number, created "+
+		"FROM messages_space.messages_table WHERE email='%v';", email)
 	iter := session.Query(query).Iter()
 	for iter.Scan(&message.Id, &message.Email, &message.Title, &message.Content, &message.MagicNumber, &message.Created) {
 		messages = append(messages, message)
