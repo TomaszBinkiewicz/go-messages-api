@@ -25,8 +25,8 @@ func getEnv(key, fallback string) string {
 }
 
 var CassandraConfig = CassandraConfigStruct{
-	host:     getEnv("CASSANDRA_HOST", "db"), // database IP for testing
-	Keyspace: getEnv("CASSANDRA_KEYSPACE", "messages_space"), // test_space for testing
+	host:     getEnv("CASSANDRA_HOST", "db"),                 // db -> database IP for testing
+	Keyspace: getEnv("CASSANDRA_KEYSPACE", "messages_space"), // messages_space -> test_space for testing
 	username: getEnv("CASSANDRA_USER", "Username"),
 	password: getEnv("CASSANDRA_PASSWD", "Password"),
 }

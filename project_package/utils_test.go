@@ -17,30 +17,36 @@ func TestGetTime(t *testing.T) {
 }
 
 func TestValidateEmail(t *testing.T) {
-	// proper email address
-	validation := ValidateEmail("some.email@example.com")
-	if validation == false {
-		t.Errorf("Function ValidateEmail should return true, but returned false.")
+	tt := []struct {
+		email    string
+		validate bool
+	}{
+		{
+			"some.email@example.com",
+			false,
+		},
+		{
+			"some12.!#$%&'*+/=?^_`{|}~-EMAIL@example.com",
+			false,
+		},
+		{
+			"some.email.example.com",
+			true,
+		},
+		{
+			"some.email@",
+			true,
+		},
+		{
+			"@example.com",
+			true,
+		},
 	}
-	// proper email address
-	validation = ValidateEmail("some12.!#$%&'*+/=?^_`{|}~-EMAIL@example.com")
-	if validation == false {
-		t.Errorf("Function ValidateEmail should return true, but returned false.")
-	}
-	// incorrect email address
-	validation = ValidateEmail("some.email.example.com")
-	if validation == true {
-		t.Errorf("Function ValidateEmail should return false, but returned true.")
-	}
-	// incorrect email address
-	validation = ValidateEmail("some.email@")
-	if validation == true {
-		t.Errorf("Function ValidateEmail should return false, but returned true.")
-	}
-	// proper email address
-	validation = ValidateEmail("@example.com")
-	if validation == true {
-		t.Errorf("Function ValidateEmail should return false, but returned true.")
+	for _, tc := range tt {
+		validation := ValidateEmail(tc.email)
+		if validation == tc.validate {
+			t.Errorf("Function ValidateEmail should return %v, but returned %v.", tc.validate, validation)
+		}
 	}
 }
 
@@ -53,7 +59,7 @@ func TestCassandraConnection(t *testing.T) {
 	temp.Close()
 }
 
-func prepareTestKesysoace() *gocql.Session {
+func PrepareTestKesyspace() *gocql.Session {
 	// prepare mock data
 	session := CassandraConnection()
 
@@ -76,7 +82,7 @@ func prepareTestKesysoace() *gocql.Session {
 	return session
 }
 
-func addTestingData() {
+func AddTestingData() {
 	// Add testing data
 	values := fmt.Sprintf("%v, %v, %v, %v, %v, %v", id, "'jan.kowalski@example.com'", "'Interview'",
 		"'simple text'", 101, GetTime()-7)
@@ -100,49 +106,59 @@ func addTestingData() {
 	ExecQuery(query)
 }
 
-func dropTestKeyspace() {
+func DropTestKeyspace() {
 	query := "DROP KEYSPACE IF EXISTS test_space;"
 	ExecQuery(query)
 	KeyspaceInitialized = false
+	id = 1
 }
 
 func TestGetSliceMessages(t *testing.T) {
-	session := prepareTestKesysoace()
-	addTestingData()
+	session := PrepareTestKesyspace()
+	AddTestingData()
 	defer session.Close()
 	// proper email address
 	numberOfMails := len(GetSliceMessages())
 	if numberOfMails != 3 {
 		t.Errorf("Function GetSliceMessages should return 3 messages, but returned %v.", numberOfMails)
 	}
-	dropTestKeyspace()
+	DropTestKeyspace()
 }
 
 func TestGetSliceMessagesEmail(t *testing.T) {
-	session := prepareTestKesysoace()
-	addTestingData()
+	session := PrepareTestKesyspace()
+	AddTestingData()
 	defer session.Close()
-	// jan.kowalski@example.com
-	numberOfMails := len(GetSliceMessagesEmail("jan.kowalski@example.com"))
-	if numberOfMails != 2 {
-		t.Errorf("Function GetSliceMessages should return 3 messages, but returned %v.", numberOfMails)
+	tt := []struct {
+		email    string
+		quantity int
+	}{
+		{
+			"jan.kowalski@example.com",
+			2,
+		},
+		{
+			"anna.zajkowska@example.com",
+			1,
+		},
+		{
+			"no.such.email@example.com",
+			0,
+		},
 	}
-	// anna.zajkowska@example.com
-	numberOfMails = len(GetSliceMessagesEmail("anna.zajkowska@example.com"))
-	if numberOfMails != 1 {
-		t.Errorf("Function GetSliceMessages should return 2 messages, but returned %v.", numberOfMails)
+	for _, tc := range tt {
+		// jan.kowalski@example.com
+		numberOfMails := len(GetSliceMessagesEmail(tc.email))
+		if numberOfMails != tc.quantity {
+			t.Errorf("Function GetSliceMessages should return 3 messages, but returned %v.", numberOfMails)
+		}
 	}
-	// no.such.email@example.com
-	numberOfMails = len(GetSliceMessagesEmail("no.such.email@example.com"))
-	if numberOfMails != 0 {
-		t.Errorf("Function GetSliceMessages should return 0 messages, but returned %v.", numberOfMails)
-	}
-	dropTestKeyspace()
+	DropTestKeyspace()
 }
 
 func TestDeleteOldMessages(t *testing.T) {
-	session := prepareTestKesysoace()
-	addTestingData()
+	session := PrepareTestKesyspace()
+	AddTestingData()
 	defer session.Close()
 	DeleteOldMessages()
 	time.Sleep(65 * time.Second)
@@ -150,5 +166,5 @@ func TestDeleteOldMessages(t *testing.T) {
 	if numberOfMails != 1 {
 		t.Errorf("Function GetSliceMessages should return 1 messages, but returned %v.", numberOfMails)
 	}
-	dropTestKeyspace()
+	DropTestKeyspace()
 }
