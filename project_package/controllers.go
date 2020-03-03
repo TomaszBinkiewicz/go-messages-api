@@ -60,7 +60,6 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 // Send message
 func SendMessage(w http.ResponseWriter, r *http.Request) {
 	messages := GetSliceMessages()
-	checkErr := false
 	var sendTo SendTo
 	var toDelete []int
 	err := json.NewDecoder(r.Body).Decode(&sendTo)
@@ -80,10 +79,10 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 			d := gomail.NewDialer("smtp.example.com", 1111, EmailConfig.username, EmailConfig.password)
 
 			if err := d.DialAndSend(m); err != nil {
-				// todo - uncomment for errors handling
-				//checkErr = true
-				//w.WriteHeader(http.StatusInternalServerError)
-				//w.Write([]byte("500 - Something bad happened!"))
+				// comment this block for ignoring errors caused by connection to the SMTP server
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 - Something bad happened!"))
+				return
 			}
 
 			// delete from db
@@ -94,13 +93,12 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if checkErr == false {
-		for _, value := range toDelete {
-			DeleteMessage(value)
-		}
-		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte("202 - Message(s) sent!"))
+	for _, value := range toDelete {
+		DeleteMessage(value)
 	}
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte("202 - Message(s) sent!"))
+
 }
 
 // Delete message
