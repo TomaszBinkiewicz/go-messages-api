@@ -29,7 +29,7 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 
 	values := fmt.Sprintf("%v, '%v', '%v', '%v', %v, %v", message.Id, message.Email, message.Title,
 		message.Content, message.MagicNumber, message.Created)
-	query := fmt.Sprintf("INSERT INTO messages_space.messages_table (id, email, title, content, magic_number,"+
+	query := fmt.Sprintf("INSERT INTO messages_table (id, email, title, content, magic_number,"+
 		"created) VALUES (%v);", values)
 	ExecQuery(query)
 	w.WriteHeader(201)
@@ -73,11 +73,11 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 		if item.MagicNumber == sendTo.MagicNumber {
 			// send email
 			m := gomail.NewMessage()
-			m.SetHeader("From", emailConfig.author)
+			m.SetHeader("From", EmailConfig.author)
 			m.SetHeader("To", item.Email)
 			m.SetHeader("Subject", item.Title)
 			m.SetBody("text/html", item.Content)
-			d := gomail.NewDialer("smtp.example.com", 1111, emailConfig.username, emailConfig.password)
+			d := gomail.NewDialer("smtp.example.com", 1111, EmailConfig.username, EmailConfig.password)
 
 			if err := d.DialAndSend(m); err != nil {
 				// todo - uncomment for errors handling
@@ -105,6 +105,6 @@ func SendMessage(w http.ResponseWriter, r *http.Request) {
 
 // Delete message
 func DeleteMessage(id int) {
-	query := fmt.Sprintf("DELETE FROM messages_space.messages_table WHERE id=%v;", id)
+	query := fmt.Sprintf("DELETE FROM messages_table WHERE id=%v;", id)
 	ExecQuery(query)
 }

@@ -13,4 +13,3 @@ services:
       - db
     command: go run messages.go
     restart: on-failure
-

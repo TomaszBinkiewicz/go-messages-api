@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	"log"
 	"messages/project_package"
@@ -9,16 +10,18 @@ import (
 
 func main() {
 	// Create keyspace
-	query := "CREATE KEYSPACE IF NOT EXISTS messages_space WITH REPLICATION = {'class':'SimpleStrategy'," +
-		"'replication_factor':1};"
+	keyspace := project_package.CassandraConfig.Keyspace
+	query := fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %v WITH REPLICATION = {'class':'SimpleStrategy', " +
+		"'replication_factor':1};", keyspace)
 	project_package.ExecQuery(query)
+	project_package.KeyspaceInitialized = true
 
 	// Create table
-	query = "CREATE TABLE IF NOT EXISTS messages_space.messages_table (id int, email text, title text, content text," +
-		"magic_number int, Created int,PRIMARY KEY ((id), email));"
+	query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %v.messages_table (id int, email text, title text, " +
+		"content text, magic_number int, Created int,PRIMARY KEY ((id), email));", keyspace)
 	project_package.ExecQuery(query)
 
-	query = "CREATE INDEX IF NOT EXISTS ON messages_space.messages_table (email);"
+	query = fmt.Sprintf("CREATE INDEX IF NOT EXISTS ON %v.messages_table (email);", keyspace)
 	project_package.ExecQuery(query)
 
 	// Checking for old messages
