@@ -4,7 +4,7 @@ services:
     image: cassandra:3.11
     restart: on-failure
   web:
-    build: .
+    image: tombin/go-messages-api:2.1
     ports:
       - "8000:8000"
     depends_on:
