@@ -1,0 +1,51 @@
+{
+	"ImportPath": "messages",
+	"GoVersion": "go1.13",
+	"GodepVersion": "v80",
+	"Deps": [
+		{
+			"ImportPath": "github.com/gocql/gocql",
+			"Comment": "pre-node-events-746-g81b8263",
+			"Rev": "81b8263d9fe526782a588ef94d3fa5c6148e5d67"
+		},
+		{
+			"ImportPath": "github.com/gocql/gocql/internal/lru",
+			"Comment": "pre-node-events-746-g81b8263",
+			"Rev": "81b8263d9fe526782a588ef94d3fa5c6148e5d67"
+		},
+		{
+			"ImportPath": "github.com/gocql/gocql/internal/murmur",
+			"Comment": "pre-node-events-746-g81b8263",
+			"Rev": "81b8263d9fe526782a588ef94d3fa5c6148e5d67"
+		},
+		{
+			"ImportPath": "github.com/gocql/gocql/internal/streams",
+			"Comment": "pre-node-events-746-g81b8263",
+			"Rev": "81b8263d9fe526782a588ef94d3fa5c6148e5d67"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Comment": "v0.0.1-6-gff6b7dc",
+			"Rev": "ff6b7dc882cf4cfba7ee0b9f7dcc1ac096c554aa"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.7.4",
+			"Rev": "75dcda0896e109a2a22c9315bca3bb21b87b2ba5"
+		},
+		{
+			"ImportPath": "github.com/hailocab/go-hostpool",
+			"Rev": "e80d13ce29ede4452c43dea11e79b9bc8a15b478"
+		},
+		{
+			"ImportPath": "gopkg.in/gomail.v2",
+			"Comment": "2.0.0-23-g81ebce5",
+			"Rev": "81ebce5c23dfd25c6c67194b37d3dd3f338c98b1"
+		},
+		{
+			"ImportPath": "gopkg.in/inf.v0",
+			"Comment": "v0.9.1",
+			"Rev": "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
+		}
+	]
+}
